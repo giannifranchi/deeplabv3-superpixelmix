@@ -338,7 +338,8 @@ def main():
         for (images, labels) in train_loader:
             cur_itrs += 1
 
-            images = images.to(device, dtype=torch.float32)
+            #images = images.to(device, dtype=torch.float32)
+            images = images.to(device, dtype=torch.float16)
             labels = labels.to(device, dtype=torch.long)
 
             optimizer.zero_grad()
