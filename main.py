@@ -325,6 +325,9 @@ def main():
         print(metrics.to_str(val_score))
         return
 
+    #scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.cuda.amp.GradScaler()
+
     interval_loss = 0
     while True: #cur_itrs < opts.total_itrs:
         # =====  Train  =====
@@ -337,10 +340,14 @@ def main():
             labels = labels.to(device, dtype=torch.long)
 
             optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
+            # Casts operations to mixed precision
+            with torch.cuda.amp.autocast():
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             np_loss = loss.detach().cpu().numpy()
             interval_loss += np_loss
