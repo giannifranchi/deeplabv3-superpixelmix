@@ -328,6 +328,8 @@ def main():
     #scaler = torch.cuda.amp.GradScaler()
     scaler = torch.cuda.amp.GradScaler()
 
+    torch.cuda.empty_cache()
+
     interval_loss = 0
     while True: #cur_itrs < opts.total_itrs:
         # =====  Train  =====
