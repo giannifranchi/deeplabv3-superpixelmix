@@ -335,6 +335,9 @@ def main():
         # =====  Train  =====
         model.train()
         cur_epochs += 1
+        torch.cuda.synchronize()
+        since = int(round(time.time()*1000))
+
         for (images, labels) in train_loader:
             cur_itrs += 1
 
@@ -392,6 +395,10 @@ def main():
 
             if cur_itrs >=  opts.total_itrs:
                 return
+
+        torch.cuda.synchronize()
+        time_elapsed = int(round(time.time()*1000)) - since
+        print ('training time elapsed {}ms'.format(time_elapsed))
 
         
 if __name__ == '__main__':
