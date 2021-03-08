@@ -5,6 +5,7 @@ import os
 import random
 import argparse
 import numpy as np
+import time
 
 from torch.utils import data
 from datasets import VOCSegmentation, Cityscapes
