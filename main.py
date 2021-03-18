@@ -248,7 +248,8 @@ def main():
         'deeplabv3_resnet101': network.deeplabv3_resnet101,
         'deeplabv3plus_resnet101': network.deeplabv3plus_resnet101,
         'deeplabv3_mobilenet': network.deeplabv3_mobilenet,
-        'deeplabv3plus_mobilenet': network.deeplabv3plus_mobilenet
+        'deeplabv3plus_mobilenet': network.deeplabv3plus_mobilenet,
+        'deeplav3plus_resnet18' : network.deeplabv3plus_resnet18
     }
 
     model = model_map[opts.model](num_classes=opts.num_classes, output_stride=opts.output_stride)

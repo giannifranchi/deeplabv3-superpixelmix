@@ -125,6 +125,15 @@ def deeplabv3plus_resnet101(num_classes=21, output_stride=8, pretrained_backbone
     """
     return _load_model('deeplabv3plus', 'resnet101', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
 
+def deeplabv3plus_resnet18(num_classes=21, output_stride=8, pretrained_backbone=True):
+    """Constructs a DeepLabV3+ model with a ResNet-18 backbone.
+
+    Args:
+        num_classes (int): number of classes.
+        output_stride (int): output stride for deeplab.
+        pretrained_backbone (bool): If True, use the pretrained backbone.
+    """
+    return _load_model('deeplabv3plus', 'resnet18', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
 
 def deeplabv3plus_mobilenet(num_classes=21, output_stride=8, pretrained_backbone=True):
     """Constructs a DeepLabV3+ model with a MobileNetv2 backbone.
@@ -135,3 +144,4 @@ def deeplabv3plus_mobilenet(num_classes=21, output_stride=8, pretrained_backbone
         pretrained_backbone (bool): If True, use the pretrained backbone.
     """
     return _load_model('deeplabv3plus', 'mobilenetv2', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
+
