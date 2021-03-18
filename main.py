@@ -35,7 +35,7 @@ def get_argparser():
     # Deeplab Options
     parser.add_argument("--model", type=str, default='deeplabv3plus_mobilenet',
                         choices=['deeplabv3_resnet50',  'deeplabv3plus_resnet50',
-                                 'deeplabv3_resnet101', 'deeplabv3plus_resnet101',
+                                 'deeplabv3_resnet101', 'deeplabv3plus_resnet18', 'deeplabv3plus_resnet101',
                                  'deeplabv3_mobilenet', 'deeplabv3plus_mobilenet'], help='model name')
     parser.add_argument("--separable_conv", action='store_true', default=False,
                         help="apply separable conv to decoder and aspp")
