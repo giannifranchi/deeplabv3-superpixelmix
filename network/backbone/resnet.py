@@ -174,7 +174,7 @@ class ResNet(nn.Module):
         downsample = None
         previous_dilation = self.dilation
         if dilate:
-            self.dilation *= stride
+            #self.dilation *= stride
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
