@@ -1,48 +1,43 @@
-#resnet implement : https://github.com/pytorch/vision/tree/master/torchvision
-
+"""Dilated ResNet"""
+import math
 import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
-           'resnet152']
-
+           'resnet152', 'BasicBlock', 'Bottleneck']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
-    'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
-    'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
-    'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
 
 
 def conv3x3(in_planes, out_planes, stride=1):
-    """3x3 convolution with padding"""
+    "3x3 convolution with padding"
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
 
 
-def conv1x1(in_planes, out_planes, stride=1):
-    """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
-
-
 class BasicBlock(nn.Module):
+    """ResNet BasicBlock
+    """
     expansion = 1
-
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, previous_dilation=1,
+                 norm_layer=None):
         super(BasicBlock, self).__init__()
-        self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride,
+                               padding=dilation, dilation=dilation, bias=False)
+        self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1,
+                               padding=previous_dilation, dilation=previous_dilation, bias=False)
+        self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x):
-        identity = x
+        residual = x
 
         out = self.conv1(x)
         out = self.bn1(out)
@@ -52,31 +47,45 @@ class BasicBlock(nn.Module):
         out = self.bn2(out)
 
         if self.downsample is not None:
-            identity = self.downsample(x)
+            residual = self.downsample(x)
 
-        out += identity
+        out += residual
         out = self.relu(out)
 
         return out
 
 
 class Bottleneck(nn.Module):
+    """ResNet Bottleneck
+    """
+    # pylint: disable=unused-argument
     expansion = 4
-
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, dilation=1,
+                 downsample=None, previous_dilation=1, norm_layer=None):
         super(Bottleneck, self).__init__()
-        self.conv1 = conv1x1(inplanes, planes)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = conv3x3(planes, planes, stride)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = conv1x1(planes, planes * self.expansion)
-        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = norm_layer(planes)
+        self.conv2 = nn.Conv2d(
+            planes, planes, kernel_size=3, stride=stride,
+            padding=dilation, dilation=dilation, bias=False)
+        self.bn2 = norm_layer(planes)
+        self.conv3 = nn.Conv2d(
+            planes, planes * 4, kernel_size=1, bias=False)
+        self.bn3 = norm_layer(planes * 4)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
+        self.dilation = dilation
         self.stride = stride
 
+    def _sum_each(self, x, y):
+        assert(len(x) == len(y))
+        z = []
+        for i in range(len(x)):
+            z.append(x[i]+y[i])
+        return z
+
     def forward(self, x):
-        identity = x
+        residual = x
 
         out = self.conv1(x)
         out = self.bn1(out)
@@ -90,87 +99,136 @@ class Bottleneck(nn.Module):
         out = self.bn3(out)
 
         if self.downsample is not None:
-            identity = self.downsample(x)
+            residual = self.downsample(x)
 
-        out += identity
+        out += residual
         out = self.relu(out)
 
         return out
 
 
 class ResNet(nn.Module):
+    """Dilated Pre-trained ResNet Model, which preduces the stride of 8 featuremaps at conv5.
 
-    def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
+    Parameters
+    ----------
+    block : Block
+        Class for the residual block. Options are BasicBlockV1, BottleneckV1.
+    layers : list of int
+        Numbers of layers in each block
+    classes : int, default 1000
+        Number of classification classes.
+    dilated : bool, default False
+        Applying dilation strategy to pretrained ResNet yielding a stride-8 model,
+        typically used in Semantic Segmentation.
+    norm_layer : object
+        Normalization layer used in backbone network (default: :class:`mxnet.gluon.nn.BatchNorm`;
+        for Synchronized Cross-GPU BachNormalization).
+
+    Reference:
+
+        - He, Kaiming, et al. "Deep residual learning for image recognition." Proceedings of the IEEE conference on computer vision and pattern recognition. 2016.
+
+        - Yu, Fisher, and Vladlen Koltun. "Multi-scale context aggregation by dilated convolutions."
+    """
+    # pylint: disable=unused-variable
+    def __init__(self, block, layers, num_classes=1000, dilated=True,
+                 deep_base=True, norm_layer=nn.BatchNorm2d, output_size=8):
+        self.inplanes = 128 if deep_base else 64
         super(ResNet, self).__init__()
-        self.inplanes = 64
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        if deep_base:
+            self.conv1 = nn.Sequential(
+                nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False),
+                norm_layer(64),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=False),
+                norm_layer(64),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            )
+        else:
+            self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                                   bias=False)
+        self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.layer1 = self._make_layer(block, 64, layers[0], norm_layer=norm_layer)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, norm_layer=norm_layer)
 
-        # self.C1_down_channel = nn.Conv2d(64, 21, 1)
-        # self.C2_down_channel = nn.Conv2d(256, 21, 1)
-        # self.C3_down_channel = nn.Conv2d(512, 21, 1)
-        # self.C4_down_channel = nn.Conv2d(1024, 21, 1)
-        # self.C5_down_channel = nn.Conv2d(2048, 21, 1)
+        dilation_rate = 2
+        if dilated and output_size <= 8:
+            self.layer3 = self._make_layer(block, 256, layers[2], stride=1,
+                                           dilation=dilation_rate, norm_layer=norm_layer)
+            dilation_rate *= 2
+        else:
+            self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+                                           norm_layer=norm_layer)
+
+        if dilated and output_size <= 16:
+            self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
+                                           dilation=dilation_rate, norm_layer=norm_layer)
+        else:
+            self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
+                                           norm_layer=norm_layer)
+
+        self.avgpool = nn.AvgPool2d(7, stride=1)
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, norm_layer):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
-        # Zero-initialize the last BN in each residual branch,
-        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-        if zero_init_residual:
-            for m in self.modules():
-                if isinstance(m, Bottleneck):
-                    nn.init.constant_(m.bn3.weight, 0)
-                elif isinstance(m, BasicBlock):
-                    nn.init.constant_(m.bn2.weight, 0)
-
-    def _make_layer(self, block, planes, blocks, stride=1):
+    def _make_layer(self, block, planes, blocks, stride=1, dilation=1, norm_layer=None):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                nn.BatchNorm2d(planes * block.expansion),
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                norm_layer(planes * block.expansion),
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        if dilation == 1 or dilation == 2:
+            layers.append(block(self.inplanes, planes, stride, dilation=1,
+                                downsample=downsample, previous_dilation=dilation, norm_layer=norm_layer))
+        elif dilation == 4:
+            layers.append(block(self.inplanes, planes, stride, dilation=2,
+                                downsample=downsample, previous_dilation=dilation, norm_layer=norm_layer))
+        else:
+            raise RuntimeError("=> unknown dilation size: {}".format(dilation))
+
         self.inplanes = planes * block.expansion
-        for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes, dilation=dilation, previous_dilation=dilation,
+                                norm_layer=norm_layer))
 
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        #x 1
-        x = self.conv1(x)  #1/2
+        x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        C1 = self.maxpool(x) #1/4
-        C2 = self.layer1(C1) #1/4
-        C3 = self.layer2(C2) #1/8
-        C4 = self.layer3(C3) #1/16
-        C5 = self.layer4(C4) #1/32
+        x = self.maxpool(x)
 
-        results = [C1,C2,C3,C4,C5]
-        return results
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+
+        return x
 
 
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
@@ -182,6 +240,7 @@ def resnet18(pretrained=False, **kwargs):
 
 def resnet34(pretrained=False, **kwargs):
     """Constructs a ResNet-34 model.
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
@@ -191,34 +250,43 @@ def resnet34(pretrained=False, **kwargs):
     return model
 
 
-def resnet50(pretrained=False, **kwargs):
+def resnet50(pretrained=False, root='~/.encoding/models', **kwargs):
     """Constructs a ResNet-50 model.
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+        from ..models.model_store import get_model_file
+        model.load_state_dict(torch.load(
+            get_model_file('resnet50', root=root)), strict=False)
     return model
 
 
-def resnet101(pretrained=False, **kwargs):
+def resnet101(pretrained=False, root='~/.encoding/models', **kwargs):
     """Constructs a ResNet-101 model.
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']), strict=False)
+        from ..models.model_store import get_model_file
+        model.load_state_dict(torch.load(
+            get_model_file('resnet101', root=root)), strict=False)
     return model
 
 
-def resnet152(pretrained=False, **kwargs):
+def resnet152(pretrained=False, root='~/.encoding/models', **kwargs):
     """Constructs a ResNet-152 model.
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
+        from ..models.model_store import get_model_file
+        model.load_state_dict(torch.load(
+            get_model_file('resnet152', root=root)), strict=False)
     return model
