@@ -333,7 +333,8 @@ def main():
     torch.cuda.empty_cache()
 
     interval_loss = 0
-    while True: #cur_itrs < opts.total_itrs:
+    train_losses = []
+    while cur_epochs < 40: #cur_itrs < opts.total_itrs:
         # =====  Train  =====
         model.train()
         cur_epochs += 1
@@ -369,6 +370,13 @@ def main():
                 interval_loss = 0.0
 
             if (cur_itrs) % opts.val_interval == 0:
+                train_losses.append(loss.item())
+                plt.figure(figsize=(20,10))
+                plt.plot(train_losses)
+                plt.xlabel("Time")
+                plt.ylabel("Loss")
+                plt.title("Loss function evolution")
+                plt.savefig('loss_train.png')
                 save_ckpt('checkpoints/latest_%s_%s_os%d.pth' %
                           (opts.model, opts.dataset, opts.output_stride))
                 print("validation...")
