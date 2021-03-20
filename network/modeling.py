@@ -12,9 +12,13 @@ def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_bac
         replace_stride_with_dilation=[False, False, True]
         aspp_dilate = [6, 12, 18]
 
+    #backbone = resnet.__dict__[backbone_name](
+    #    pretrained=pretrained_backbone,
+    #    replace_stride_with_dilation=replace_stride_with_dilation)
+    
+    #resnet18
     backbone = resnet.__dict__[backbone_name](
-        pretrained=pretrained_backbone,
-        replace_stride_with_dilation=replace_stride_with_dilation)
+        pretrained=pretrained_backbone)    
     
     inplanes = 2048
     low_level_planes = 256
