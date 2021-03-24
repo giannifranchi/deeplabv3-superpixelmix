@@ -10,7 +10,7 @@ class OHEM(nn.Module):
     Needs input from nn.LogSotmax() """
 
     def __init__(self, ratio,ignore_index, min_kept=100000):
-        super(OHEM, self).__init__(None, True)
+        super(OHEM, self).__init__()
         assert ratio > 0
         self.ratio = ratio
         self.ignore_index=ignore_index
