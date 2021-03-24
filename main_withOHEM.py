@@ -6,7 +6,7 @@ import random
 import argparse
 import numpy as np
 import time
-
+from OHEM import *
 from torch.utils import data
 from datasets import VOCSegmentation, Cityscapes
 from utils import ext_transforms as et
@@ -253,6 +253,7 @@ def main():
     }
 
     model = model_map[opts.model](num_classes=opts.num_classes, output_stride=opts.output_stride)
+    sampler=OHEM(0.7,ignore_index=255)
     if opts.separable_conv and 'plus' in opts.model:
         network.convert_to_separable_conv(model.classifier)
     utils.set_bn_momentum(model.backbone, momentum=0.01)
@@ -283,7 +284,8 @@ def main():
             class_weight=[0.8373, 0.9180, 0.8660, 1.0345, 1.0166, 0.9969, 0.9754,
                         1.0489, 0.8786, 1.0023, 0.9539, 0.9843, 1.1116, 0.9037,
                         1.0865, 1.0955, 1.0865, 1.1529, 1.0507]
-            criterion = nn.CrossEntropyLoss(ignore_index=255,weight=torch.from_numpy(class_weight).float().cuda(), reduction='mean')
+            #criterion = nn.CrossEntropyLoss(ignore_index=255,weight=torch.from_numpy(class_weight).float().cuda(), reduction='mean')
+            criterion = CrossEntropyLoss2dPixelWiseWeighted(ignore_index=255,weight=torch.from_numpy(class_weight).float().cuda())
 
     def save_ckpt(path):
         """ save current model
@@ -358,7 +360,9 @@ def main():
             # Casts operations to mixed precision
             with torch.cuda.amp.autocast():
                 outputs = model(images)
-                loss = criterion(outputs, labels)
+                pixelWiseWeight=sampler(images,labels)
+                #loss = criterion(outputs, labels)
+                loss = criterion(outputs, labels,pixelWiseWeight)
                 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
