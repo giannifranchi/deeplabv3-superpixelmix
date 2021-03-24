@@ -284,8 +284,8 @@ def main():
             class_weight=[0.8373, 0.9180, 0.8660, 1.0345, 1.0166, 0.9969, 0.9754,
                         1.0489, 0.8786, 1.0023, 0.9539, 0.9843, 1.1116, 0.9037,
                         1.0865, 1.0955, 1.0865, 1.1529, 1.0507]
-            #criterion = nn.CrossEntropyLoss(ignore_index=255,weight=torch.from_numpy(class_weight).float().cuda(), reduction='mean')
-            criterion = CrossEntropyLoss2dPixelWiseWeighted(ignore_index=255,weight=torch.from_numpy(class_weight).float().cuda())
+            #criterion = nn.CrossEntropyLoss(ignore_index=255,weight=torch.from_numpy(np.asarray(class_weight)).float().cuda(), reduction='mean')
+            criterion = CrossEntropyLoss2dPixelWiseWeighted(ignore_index=255,weight=torch.from_numpy(np.asarray(class_weight)).float().cuda())
 
     def save_ckpt(path):
         """ save current model
