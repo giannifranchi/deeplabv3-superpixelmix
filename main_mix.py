@@ -468,7 +468,9 @@ def main():
                 train_loader_unlabelled_iter = iter(train_loader_unlabelled)
                 batch_remain = next(train_loader_unlabelled_iter)
             if mix_mask == "watershedmix": inputs_u_w, labels_u_w, mask = batch_remain
-            else : inputs_u_w, labels_u_w = batch_remain
+            else :  inputs_u_w, labels_u_w = batch_remain
+            inputs_u_w = inputs_u_w.to(device, dtype=torch.float16)
+
             with torch.cuda.amp.autocast():
                 logits_u_w = ema_model(inputs_u_w)
                 softmax_u_w = torch.softmax(logits_u_w.detach(), dim=1)
@@ -490,9 +492,9 @@ def main():
                 img_size = inputs_u_w.shape[2:4]
                 for image_i in range(opts.batch_size):
                     if image_i == 0:
-                        MixMask = torch.from_numpy(generate_cutout_mask(img_size)).unsqueeze(0).cuda().float()
+                        MixMask = torch.from_numpy(generate_cutout_mask(img_size)).unsqueeze(0).to(device, dtype=torch.float16)
                     else:
-                        MixMask = torch.cat((MixMask, torch.from_numpy(generate_cutout_mask(img_size)).unsqueeze(0).cuda().float()))
+                        MixMask = torch.cat((MixMask, torch.from_numpy(generate_cutout_mask(img_size)).unsqueeze(0).to(device, dtype=torch.float16)))
 
                 '''elif mix_mask == "cow":
                 img_size = inputs_u_w.shape[2:4]
@@ -509,8 +511,7 @@ def main():
                         MixMask = torch.cat((MixMask,torch.from_numpy(transformmasks.generate_cow_mask(img_size, sigma, p, seed=None)).unsqueeze(0).cuda().float()))'''
 
             elif mix_mask == "watershedmix":
-                MixMask = mask.cuda().float()
-
+                MixMask =  mask.to(device, dtype=torch.float16)
 
             inputs_u_s, _ = mix(mask=MixMask, data=inputs_u_w, target=None)
 
