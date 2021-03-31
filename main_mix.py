@@ -20,7 +20,9 @@ from PIL import Image
 import matplotlib
 import matplotlib.pyplot as plt
 
-
+mix_mask = 'cut'
+consistency_loss = 'CE'
+consistency_weight = 1
 def get_argparser():
     parser = argparse.ArgumentParser()
 
@@ -241,6 +243,55 @@ def update_ema_variables(ema_model, model, alpha_teacher, iteration,gpus):
             ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
     return ema_model
 
+def mix(mask, data = None, target = None):
+    #Mix
+    if not (data is None):
+        if mask.shape[0] == data.shape[0]:
+            data = torch.cat([(mask[i] * data[i] + (1 - mask[i]) * data[(i + 1) % data.shape[0]]).unsqueeze(0) for i in range(data.shape[0])])
+        elif mask.shape[0] == data.shape[0] / 2:
+            data = torch.cat((torch.cat([(mask[i] * data[2 * i] + (1 - mask[i]) * data[2 * i + 1]).unsqueeze(0) for i in range(int(data.shape[0] / 2))]),
+                              torch.cat([((1 - mask[i]) * data[2 * i] + mask[i] * data[2 * i + 1]).unsqueeze(0) for i in range(int(data.shape[0] / 2))])))
+    if not (target is None):
+        target = torch.cat([(mask[i] * target[i] + (1 - mask[i]) * target[(i + 1) % target.shape[0]]).unsqueeze(0) for i in range(target.shape[0])])
+    return data, target
+
+def generate_cutout_mask(img_size, seed = None):
+    np.random.seed(seed)
+
+    cutout_area = img_size[0] * img_size[1] / 2
+
+    w = np.random.randint(img_size[1] / 2, img_size[1])
+    h = np.amin((np.round(cutout_area / w),img_size[0]))
+
+    x_start = np.random.randint(0, img_size[1] - w + 1)
+    y_start = np.random.randint(0, img_size[0] - h + 1)
+
+    x_end = int(x_start + w)
+    y_end = int(y_start + h)
+
+    mask = np.ones(img_size)
+    mask[y_start:y_end, x_start:x_end] = 0
+    return mask.astype(float)
+
+class CrossEntropyLoss2dPixelWiseWeighted(nn.Module):
+    def __init__(self, weight=None, ignore_index=250, reduction='none'):
+        super(CrossEntropyLoss2dPixelWiseWeighted, self).__init__()
+        self.CE =  nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_index, reduction=reduction)
+
+    def forward(self, output, target, pixelWiseWeight):
+        loss = self.CE(output, target)
+        loss = torch.mean(loss * pixelWiseWeight)
+        return loss
+
+class MSELoss2d(nn.Module):
+    def __init__(self, size_average=None, reduce=None, reduction='mean', ignore_index=255):
+        super(MSELoss2d, self).__init__()
+        self.MSE = nn.MSELoss(size_average=size_average, reduce=reduce, reduction=reduction)
+
+    def forward(self, output, target):
+        loss = self.MSE(torch.softmax(output, dim=1), target)
+        return loss
+
 def main():
     opts = get_argparser().parse_args()
     if opts.dataset.lower() == 'voc':
@@ -270,8 +321,22 @@ def main():
     train_dst, val_dst = get_dataset(opts)
     train_loader = data.DataLoader(
         train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2)
+    train_loader_unlabelled = data.DataLoader(
+        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2)
+    train_loader_unlabelled_iter = iter(train_loader_unlabelled)
     val_loader = data.DataLoader(
         val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
+    interp = nn.Upsample(size=(opts.crop_size, opts.crop_size), mode='bilinear', align_corners=True)
+    if consistency_loss == 'CE':
+        if len(opts.gpu_id) > 1:
+            unlabeled_loss = torch.nn.DataParallel(CrossEntropyLoss2dPixelWiseWeighted(ignore_index=255)).cuda()
+        else:
+            unlabeled_loss = CrossEntropyLoss2dPixelWiseWeighted().cuda()
+    elif consistency_loss == 'MSE':
+        if len(opts.gpu_id) > 1:
+            unlabeled_loss =  torch.nn.DataParallel(MSELoss2d()).cuda()
+        else:
+            unlabeled_loss =  MSELoss2d().cuda()
     print("Dataset: %s, Train set: %d, Val set: %d" %
           (opts.dataset, len(train_dst), len(val_dst)))
 
@@ -394,11 +459,82 @@ def main():
             # Casts operations to mixed precision
             with torch.cuda.amp.autocast():
                 outputs = model(images)
-                loss = criterion(outputs, labels)
-                
+                L_l = criterion(outputs, labels)
+
+
+            try:
+                batch_remain = next(train_loader_unlabelled_iter)
+            except:
+                train_loader_unlabelled_iter = iter(train_loader_unlabelled)
+                batch_remain = next(train_loader_unlabelled_iter)
+            if mix_mask == "watershedmix": inputs_u_w, labels_u_w, mask = batch_remain
+            else : inputs_u_w, labels_u_w = batch_remain
+            with torch.cuda.amp.autocast():
+                logits_u_w = ema_model(inputs_u_w)
+                softmax_u_w = torch.softmax(logits_u_w.detach(), dim=1)
+                #max_probs, argmax_u_w = torch.max(softmax_u_w, dim=1)
+
+            if mix_mask == "class":
+                print('NOT APPLIED')
+                '''for image_i in range(opts.batch_size):
+                    classes = torch.unique(argmax_u_w[image_i])
+                    classes = classes[classes != ignore_label]
+                    nclasses = classes.shape[0]
+                    classes = (classes[torch.Tensor(np.random.choice(nclasses, int((nclasses - nclasses % 2) / 2), replace=False)).long()]).cuda()
+                    if image_i == 0:
+                        MixMask = transformmasks.generate_class_mask(argmax_u_w[image_i], classes).unsqueeze(0).cuda()
+                    else:
+                        MixMask = torch.cat((MixMask,transformmasks.generate_class_mask(argmax_u_w[image_i], classes).unsqueeze(0).cuda()))'''
+
+            elif mix_mask == 'cut':
+                img_size = inputs_u_w.shape[2:4]
+                for image_i in range(opts.batch_size):
+                    if image_i == 0:
+                        MixMask = torch.from_numpy(generate_cutout_mask(img_size)).unsqueeze(0).cuda().float()
+                    else:
+                        MixMask = torch.cat((MixMask, torch.from_numpy(generate_cutout_mask(img_size)).unsqueeze(0).cuda().float()))
+
+                '''elif mix_mask == "cow":
+                img_size = inputs_u_w.shape[2:4]
+                sigma_min = 8
+                sigma_max = 32
+                p_min = 0.5
+                p_max = 0.5
+                for image_i in range(opts.batch_size):
+                    sigma = np.exp(np.random.uniform(np.log(sigma_min), np.log(sigma_max)))     # Random sigma
+                    p = np.random.uniform(p_min, p_max)     # Random p
+                    if image_i == 0:
+                        MixMask = torch.from_numpy(transformmasks.generate_cow_mask(img_size, sigma, p, seed=None)).unsqueeze(0).cuda().float()
+                    else:
+                        MixMask = torch.cat((MixMask,torch.from_numpy(transformmasks.generate_cow_mask(img_size, sigma, p, seed=None)).unsqueeze(0).cuda().float()))'''
+
+            elif mix_mask == "watershedmix":
+                MixMask = mask.cuda().float()
+
+
+            inputs_u_s, _ = mix(mask=MixMask, data=inputs_u_w, target=None)
+
+            softmax_u_w_mixed, _ = mix(mask=MixMask, data=softmax_u_w, target=None)
+
+
+            with torch.cuda.amp.autocast():
+                logits_u_s = model(inputs_u_s)
+                max_probs, pseudo_label = torch.max(softmax_u_w_mixed, dim=1)
+                unlabeled_weight = torch.sum(max_probs.ge(0.968).long() == 1).item() / np.size(np.array(pseudo_label.cpu()))
+                pixelWiseWeight = unlabeled_weight * torch.ones(max_probs.shape).cuda()
+                if consistency_loss == 'CE':
+                    L_u = consistency_weight * unlabeled_loss(logits_u_s, pseudo_label, pixelWiseWeight)
+                elif consistency_loss == 'MSE':
+                    unlabeled_weight = torch.sum(max_probs.ge(0.968).long() == 1).item() / np.size(np.array(pseudo_label.cpu()))
+                    #softmax_u_w_mixed = torch.cat((softmax_u_w_mixed[1].unsqueeze(0),softmax_u_w_mixed[0].unsqueeze(0)))
+                    L_u = consistency_weight * unlabeled_weight * unlabeled_loss(logits_u_s, softmax_u_w_mixed)
+                loss = L_l + L_u
+
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+
+
             alpha_teacher = 0.99
             ema_model = update_ema_variables(ema_model = ema_model, model = model, alpha_teacher=alpha_teacher, iteration=cur_itrs,gpus=opts.gpu_id)
 
