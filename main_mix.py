@@ -227,7 +227,7 @@ def create_ema_model(model,modelname,num_classes,output_stride,gpus):
     for i in range(0, n):
         mcp[i].data[:] = mp[i].data[:].clone()
     if len(gpus)>1:
-        ema_model = torch.nn.DataParallel(ema_model, device_ids=gpus)
+        ema_model = torch.nn.DataParallel(ema_model)
     return ema_model
 
 def update_ema_variables(ema_model, model, alpha_teacher, iteration,gpus):
