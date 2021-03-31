@@ -327,16 +327,12 @@ def main():
     val_loader = data.DataLoader(
         val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
     interp = nn.Upsample(size=(opts.crop_size, opts.crop_size), mode='bilinear', align_corners=True)
+    
     if consistency_loss == 'CE':
-        if len(opts.gpu_id) > 1:
-            unlabeled_loss = torch.nn.DataParallel(CrossEntropyLoss2dPixelWiseWeighted(ignore_index=255)).cuda()
-        else:
-            unlabeled_loss = CrossEntropyLoss2dPixelWiseWeighted().cuda()
+         unlabeled_loss = CrossEntropyLoss2dPixelWiseWeighted().cuda()
     elif consistency_loss == 'MSE':
-        if len(opts.gpu_id) > 1:
-            unlabeled_loss =  torch.nn.DataParallel(MSELoss2d()).cuda()
-        else:
-            unlabeled_loss =  MSELoss2d().cuda()
+        unlabeled_loss =  MSELoss2d().cuda()
+
     print("Dataset: %s, Train set: %d, Val set: %d" %
           (opts.dataset, len(train_dst), len(val_dst)))
 
