@@ -126,11 +126,12 @@ def get_dataset(opts):
                 et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                                 std=[0.229, 0.224, 0.225]),
             ])
-        train_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
+        train_dst_labelled = VOCSegmentation(root=opts.data_root, year=opts.year,
+                                    image_set='train', download=opts.download, transform=train_transform)
+        train_dst_unlabelled = VOCSegmentation(root=opts.data_root, year=opts.year,
                                     image_set='train', download=opts.download, transform=train_transform)
         val_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
                                   image_set='val', download=False, transform=val_transform)
-
     if opts.dataset == 'cityscapes':
         train_transform_simple = et.ExtCompose([
             #et.ExtResize( 512 ),
@@ -150,12 +151,13 @@ def get_dataset(opts):
             et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
         ])
-
-        train_dst = Cityscapes_mix(root=opts.data_root,
+        train_dst_labelled = Cityscapes_mix(root=opts.data_root,
+                               split='train', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=False)
+        train_dst_unlabelled = Cityscapes_mix(root=opts.data_root,
                                split='train', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=watershed)
         val_dst = Cityscapes(root=opts.data_root,
                              split='val', transform=val_transform)
-    return train_dst, val_dst
+    return train_dst_labelled,train_dst_unlabelled, val_dst
 
 
 def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
@@ -322,11 +324,11 @@ def main():
     if opts.dataset=='voc' and not opts.crop_val:
         opts.val_batch_size = 1
     
-    train_dst, val_dst = get_dataset(opts)
+    train_dst_labelled, train_dst_unlabelled, val_dst = get_dataset(opts)
     train_loader = data.DataLoader(
-        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2)
+        train_dst_labelled, batch_size=opts.batch_size, shuffle=True, num_workers=2)
     train_loader_unlabelled = data.DataLoader(
-        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2)
+        train_dst_unlabelled, batch_size=opts.batch_size, shuffle=True, num_workers=2)
     train_loader_unlabelled_iter = iter(train_loader_unlabelled)
     val_loader = data.DataLoader(
         val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
