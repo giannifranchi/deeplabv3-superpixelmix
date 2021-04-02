@@ -13,7 +13,7 @@ from skimage.morphology import square, diamond, octagon, rectangle, star, disk, 
 from skimage.segmentation import watershed
 
 
-class Cityscapes(data.Dataset):
+class Cityscapes_mix(data.Dataset):
     """Cityscapes <http://www.cityscapes-dataset.com/> Dataset.
     
     **Parameters:**
