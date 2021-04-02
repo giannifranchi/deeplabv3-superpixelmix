@@ -11,7 +11,7 @@ from skimage.morphology import erosion, dilation,binary_erosion, opening, closin
 from skimage.morphology import black_tophat, skeletonize, convex_hull_image,extrema
 from skimage.morphology import square, diamond, octagon, rectangle, star, disk, label
 from skimage.segmentation import watershed
-
+from skimage import io, color
 
 class Cityscapes_mix(data.Dataset):
     """Cityscapes <http://www.cityscapes-dataset.com/> Dataset.
