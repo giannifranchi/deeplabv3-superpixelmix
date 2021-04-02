@@ -354,8 +354,8 @@ class Cutoutwatershed_cityscape(object):
             return img
 
         #img2=Image.fromarray(img2)
-        print(img)
-        print(img.min(),img.max())
+        #print(img)
+        #print(img.min(),img.max())
 
         size=img.size()
         img2 = np.ones((size[1],size[2],3)).astype(np.uint8)
