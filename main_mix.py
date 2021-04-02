@@ -132,16 +132,18 @@ def get_dataset(opts):
                                   image_set='val', download=False, transform=val_transform)
 
     if opts.dataset == 'cityscapes':
-        train_transform = et.ExtCompose([
+        train_transform_simple = et.ExtCompose([
             #et.ExtResize( 512 ),
             et.ExtRandomCrop(size=(opts.crop_size, opts.crop_size)),
             et.ExtColorJitter( brightness=0.5, contrast=0.5, saturation=0.5 ),
             et.ExtRandomHorizontalFlip(),
+        ])
+        train_transform_tensor = et.ExtCompose([
+
             et.ExtToTensor(),
             et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
         ])
-
         val_transform = et.ExtCompose([
             #et.ExtResize( 512 ),
             et.ExtToTensor(),
@@ -150,7 +152,7 @@ def get_dataset(opts):
         ])
 
         train_dst = Cityscapes_mix(root=opts.data_root,
-                               split='train', transform=train_transform,watershed=watershed)
+                               split='train', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=watershed)
         val_dst = Cityscapes_mix(root=opts.data_root,
                              split='val', transform=val_transform)
     return train_dst, val_dst

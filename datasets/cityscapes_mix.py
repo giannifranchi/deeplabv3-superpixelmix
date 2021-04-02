@@ -75,14 +75,15 @@ class Cityscapes_mix(data.Dataset):
     #train_id_to_color = np.array(train_id_to_color)
     #id_to_train_id = np.array([c.category_id for c in classes], dtype='uint8') - 1
 
-    def __init__(self, root, split='train', mode='fine', target_type='semantic', transform=None,watershed=False,watercutout=0.3,nb_markers=200):
+    def __init__(self, root, split='train', mode='fine', target_type='semantic', transform1=None, transform2=None,watershed=False,watercutout=0.3,nb_markers=200):
         self.root = os.path.expanduser(root)
         self.mode = 'gtFine'
         self.target_type = target_type
         self.images_dir = os.path.join(self.root, 'leftImg8bit', split)
 
         self.targets_dir = os.path.join(self.root, self.mode, split)
-        self.transform = transform
+        self.transform1 = transform1
+        self.transform2 = transform2
 
         self.split = split
         self.images = []
@@ -130,9 +131,14 @@ class Cityscapes_mix(data.Dataset):
         """
         image = Image.open(self.images[index]).convert('RGB')
         target = Image.open(self.targets[index])
-        if self.transform:
-            image, target = self.transform(image, target)
-        if self.watershed: mask = self.watershed_mask(image)
+        if self.transform1:
+            image, target = self.transform1(image, target)
+        if self.watershed:
+            mask = self.watershed_mask(image)
+            target2=target.copy()
+            mask, target2 = self.transform2(mask, target2)
+        if self.transform2:
+            image, target = self.transform2(image, target)
         target = self.encode_target(target)
         if self.watershed : return image, target, mask
         else:  return image, target
