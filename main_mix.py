@@ -149,9 +149,9 @@ def get_dataset(opts):
                             std=[0.229, 0.224, 0.225]),
         ])
 
-        train_dst = Cityscapes(root=opts.data_root,
+        train_dst = Cityscapes_mix(root=opts.data_root,
                                split='train', transform=train_transform,watershed=watershed)
-        val_dst = Cityscapes(root=opts.data_root,
+        val_dst = Cityscapes_mix(root=opts.data_root,
                              split='val', transform=val_transform)
     return train_dst, val_dst
 
