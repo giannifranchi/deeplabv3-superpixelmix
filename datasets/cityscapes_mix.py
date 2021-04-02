@@ -132,7 +132,7 @@ class Cityscapes_mix(data.Dataset):
         target = Image.open(self.targets[index])
         if self.transform:
             image, target = self.transform(image, target)
-        if self.watershed: mask = self.watershed_mask(img)
+        if self.watershed: mask = self.watershed_mask(image)
         target = self.encode_target(target)
         if self.watershed : return image, target, mask
         else:  return image, target
@@ -348,6 +348,8 @@ class Cutoutwatershed_cityscape(object):
             return img
 
         #img2=Image.fromarray(img2)
+        print(img)
+        print(img.min(),img.max())
 
         size=img.size()
         img2 = np.ones((size[1],size[2],3)).astype(np.uint8)
