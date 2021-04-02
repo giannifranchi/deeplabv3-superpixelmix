@@ -143,7 +143,6 @@ class Cityscapes_mix(data.Dataset):
         if self.watershed : return image, target, mask
         else:  return image, target
 
-        return image, target
 
     def __len__(self):
         return len(self.images)
