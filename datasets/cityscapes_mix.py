@@ -134,9 +134,7 @@ class Cityscapes_mix(data.Dataset):
         if self.transform1:
             image, target = self.transform1(image, target)
         if self.watershed:
-            mask = self.watershed_mask(image)
-            target2=target.copy()
-            mask, target2 = self.transform2(mask, target2)
+            mask = torch.from_numpy(self.watershed_mask(image))
         if self.transform2:
             image, target = self.transform2(image, target)
         target = self.encode_target(target)
@@ -327,10 +325,7 @@ def gradient(rgb):
 def mosaic_cutout_binary(rgb,labels_waterhed,prop):
     shape = np.shape(rgb)
     mask = np.ones((shape[0],shape[1])).astype(np.float16)
-    '''r,g,b = np.split(mask, 3, axis=2)
-    mask_r = r
-    mask_g = g
-    mask_b = b'''
+
     nb_cluster=np.amax(labels_waterhed)
     perm = np.random.permutation(nb_cluster)
     nb=int(nb_cluster*prop)
@@ -352,16 +347,16 @@ class Cutoutwatershed_cityscape(object):
         if self.prop <= 0:
             return img
 
-        #img2=Image.fromarray(img2)
-        #print(img)
-        #print(img.min(),img.max())
+        img = np.asarray(img)
+    
 
-        size=img.size()
-        img2 = np.ones((size[1],size[2],3)).astype(np.uint8)
-        r,g,b = np.split(img.numpy(), 3, axis=0)
+        size=img.shape
+        img2 = img.copy()#np.ones((size[1],size[2],3)).astype(np.uint8)
+        '''r,g,b = np.split(img, 3, axis=0)
+        print(np.shape(r))
         img2[:, :, 0] = r
         img2[:, :, 1] = g
-        img2[:, :, 2] = b
+        img2[:, :, 2] = b'''
 
         img2=Image.fromarray(img2)
 
@@ -369,6 +364,6 @@ class Cutoutwatershed_cityscape(object):
         labels_waterhed = watershed(grad, markers=200, compactness=0.001)
         img=mosaic_cutout_binary(img2,labels_waterhed,self.prop)
         #Image.fromarray(segments_watershed).show('img_mosaic')
-        #print(img)
+        #print(img,img.shape)
 
         return img
