@@ -346,7 +346,7 @@ def main():
         unlabeled_loss =  MSELoss2d().cuda()
 
     print("Dataset: %s, Train set: %d, Train Unlabeled set: %d, Val set: %d" %
-          (opts.dataset, len(train_dst_labelled), len(train_loader_unlabelled), len(val_dst)))
+          (opts.dataset, len(train_dst_labelled), len(train_dst_unlabelled), len(val_dst)))
 
     # Set up model
     model_map = {
