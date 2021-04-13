@@ -159,7 +159,7 @@ def get_dataset(opts):
         train_dst_labelled = Cityscapes_mix(root=opts.data_root,
                                split='train', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=False)
         train_dst_unlabelled = Cityscapes_mix2(root=opts.data_root,
-                               split='train', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=watershed)
+                               split='train_extra', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=watershed)
         val_dst = Cityscapes(root=opts.data_root,
                              split='val', transform=val_transform)
     return train_dst_labelled,train_dst_unlabelled, val_dst

@@ -93,7 +93,7 @@ class Cityscapes_mix2(data.Dataset):
         self.watershed = watershed
         if self.watershed: self.watershed_mask = Cutoutwatershed_cityscape(self.watercutout, self.nb_markers)
 
-        if split not in ['train', 'test', 'val']:
+        if split not in ['train','train_extra','test', 'val']:
             raise ValueError('Invalid split for mode! Please use split="train", split="test"'
                              ' or split="val"')
 
