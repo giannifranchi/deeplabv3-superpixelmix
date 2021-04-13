@@ -8,7 +8,7 @@ import numpy as np
 import time
 
 from torch.utils import data
-from datasets import VOCSegmentation, Cityscapes_mix, Cityscapes
+from datasets import VOCSegmentation, Cityscapes_mix2, Cityscapes, Cityscapes_mix
 from utils import ext_transforms as et
 from metrics import StreamSegMetrics
 
@@ -27,6 +27,8 @@ def get_argparser():
     parser = argparse.ArgumentParser()
 
     # Datset Options
+    parser.add_argument("--data_root", type=str, default='./datasets/data',
+                        help="path to Dataset")
     parser.add_argument("--data_root", type=str, default='./datasets/data',
                         help="path to Dataset")
     parser.add_argument("--dataset", type=str, default='voc',
@@ -158,7 +160,7 @@ def get_dataset(opts):
         ])
         train_dst_labelled = Cityscapes_mix(root=opts.data_root,
                                split='train', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=False)
-        train_dst_unlabelled = Cityscapes_mix(root=opts.data_root,
+        train_dst_unlabelled = Cityscapes_mix2(root=opts.data_root,
                                split='train', transform1=train_transform_simple, transform2=train_transform_tensor,watershed=watershed)
         val_dst = Cityscapes(root=opts.data_root,
                              split='val', transform=val_transform)
@@ -449,7 +451,7 @@ def main():
 
     interval_loss = 0
     train_losses = []
-    while cur_epochs < 80: #cur_itrs < opts.total_itrs:
+    while cur_epochs < 110: #cur_itrs < opts.total_itrs:
         # =====  Train  =====
         model.train()
         cur_epochs += 1
@@ -575,7 +577,7 @@ def main():
                 print(metrics.to_str(val_score))
                 if val_score['Mean IoU'] > best_score:  # save best model
                     best_score = val_score['Mean IoU']
-                    save_ckpt('checkpoints/best_%s_%s_os%d.pth' %
+                    save_ckpt('checkpoints/best_withunlabeled_%s_%s_os%d.pth' %
                               (opts.model, opts.dataset,opts.output_stride))
 
                 if vis is not None:  # visualize validation score and samples
