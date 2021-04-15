@@ -225,6 +225,10 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
             outputs = model(images)
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
+            conf, _  = torch.max(preds,dim=1)
+
+            ece_out = ECE.forward(conf.squeeze(), preds.squeeze(),targets)
+            ece.append(ece_out.cpu().item())
 
             metrics.update(targets, preds)
             if ret_samples_ids is not None and i in ret_samples_ids:  # get vis samples
@@ -241,10 +245,7 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
                     target = loader.dataset.decode_target(target).astype(np.uint8)
                     pred = loader.dataset.decode_target(pred).astype(np.uint8)
 
-                    conf, _  = torch.max(pred,dim=1)
 
-                    ece_out = ECE.forward(conf.squeeze(), pred.squeeze(),target)
-                    ece.append(ece_out.cpu().item())
 
                     Image.fromarray(image).save('results/%d_image.png' % img_id)
                     Image.fromarray(target).save('results/%d_target.png' % img_id)
