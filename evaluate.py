@@ -225,9 +225,9 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
             outputs = model(images)
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
-            conf, _  = torch.max(preds,dim=1)
+            conf, preds_val  = torch.max(outputs,dim=1)
 
-            ece_out = ECE.forward(conf.squeeze(), preds.squeeze(),targets)
+            ece_out = ECE.forward(conf.squeeze(), preds_val.squeeze(),labels)
             ece.append(ece_out.cpu().item())
 
             metrics.update(targets, preds)
