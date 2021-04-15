@@ -231,7 +231,7 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
 
             ece_out = ECE.forward(conf.squeeze(), preds_val.squeeze(),labels)
             ece.append(ece_out.cpu().item())
-            print(ece_out)
+
 
             metrics.update(targets, preds)
             if ret_samples_ids is not None and i in ret_samples_ids:  # get vis samples
