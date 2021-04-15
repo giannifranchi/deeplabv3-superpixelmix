@@ -207,6 +207,7 @@ def get_dataset(opts):
 def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
     """Do validation and return specified samples"""
     metrics.reset()
+    softmax = torch.nn.Softmax2d()
     ret_samples = []
     ece=[]
     if opts.save_val_results:
@@ -225,10 +226,12 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
             outputs = model(images)
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
+            outputs=softmax(outputs)
             conf, preds_val  = torch.max(outputs,dim=1)
 
             ece_out = ECE.forward(conf.squeeze(), preds_val.squeeze(),labels)
             ece.append(ece_out.cpu().item())
+            print(ece_out)
 
             metrics.update(targets, preds)
             if ret_samples_ids is not None and i in ret_samples_ids:  # get vis samples
