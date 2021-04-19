@@ -210,6 +210,8 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
     softmax = torch.nn.Softmax2d()
     ret_samples = []
     ece=[]
+    NLL=[]
+    criterion_NLL = nn.NLLLoss(ignore_index=255, reduction='mean')
     if opts.save_val_results:
         if not os.path.exists('results'):
             os.mkdir('results')
@@ -227,6 +229,8 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
             outputs=softmax(outputs)
+            nll_out=criterion_NLL(outputs, labels)
+            NLL.append(nll_out.cpu().item())
             conf, preds_val  = torch.max(outputs,dim=1)
 
             ece_out = ECE.forward(conf.squeeze(), preds_val.squeeze(),labels)
