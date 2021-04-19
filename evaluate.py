@@ -270,7 +270,7 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
                     img_id += 1
 
         score = metrics.get_results()
-    return score, ret_samples,ece
+    return score, ret_samples,ece,NLL
 
 def create_ema_model(model,modelname,num_classes,output_stride,gpus):
     model_map = {
@@ -490,11 +490,12 @@ def main():
 
 
     model.eval()
-    val_score, ret_samples,ece = validate(
+    val_score, ret_samples,ece,NLL = validate(
         opts=opts, model=model, loader=val_loader, device=device, metrics=metrics, ret_samples_ids=vis_sample_id)
     print(metrics.to_str(val_score))
     print('--------------------------------------------------------------------')
-    print('ECE!!!!! mean ECE = ', np.mean(np.asarray(ece)))  # GIANNI
+    print('ECE!!!!! mean ECE = ', np.mean(np.asarray(ece)))
+    print('NLL!!!!! mean ECE = ', np.mean(np.asarray(NLL)))
     return
 
 

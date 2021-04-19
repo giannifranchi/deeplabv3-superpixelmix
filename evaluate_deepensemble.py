@@ -210,6 +210,8 @@ def validate(opts, model1,model2,model3, loader, device, metrics, ret_samples_id
     softmax = torch.nn.Softmax2d()
     ret_samples = []
     ece=[]
+    NLL=[]
+    criterion_NLL = nn.NLLLoss(ignore_index=255, reduction='mean')
     if opts.save_val_results:
         if not os.path.exists('results'):
             os.mkdir('results')
@@ -227,6 +229,8 @@ def validate(opts, model1,model2,model3, loader, device, metrics, ret_samples_id
             outputs2 = model2(images)
             outputs3 = model3(images)
             outputs=(softmax(outputs1)+softmax(outputs2)+softmax(outputs3))/3.0
+            nll_out=criterion_NLL(outputs, labels)
+            NLL.append(nll_out.cpu().item())
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
             #outputs=softmax(outputs)
@@ -269,7 +273,7 @@ def validate(opts, model1,model2,model3, loader, device, metrics, ret_samples_id
                     img_id += 1
 
         score = metrics.get_results()
-    return score, ret_samples,ece
+    return score, ret_samples,ece,NLL
 
 def create_ema_model(model,modelname,num_classes,output_stride,gpus):
     model_map = {
@@ -495,11 +499,12 @@ def main():
     model1.eval()
     model2.eval()
     model3.eval()
-    val_score, ret_samples,ece = validate(
+    val_score, ret_samples,ece,NLL = validate(
         opts=opts, model1=model1, model2=model2, model3=model3, loader=val_loader, device=device, metrics=metrics, ret_samples_ids=vis_sample_id)
     print(metrics.to_str(val_score))
     print('--------------------------------------------------------------------')
-    print('ECE!!!!! mean ECE = ', np.mean(np.asarray(ece)))  # GIANNI
+    print('ECE!!!!! mean ECE = ', np.mean(np.asarray(ece)))
+    print('NLL!!!!! mean ECE = ', np.mean(np.asarray(NLL)))
     return
 
 
