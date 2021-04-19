@@ -223,10 +223,13 @@ def validate(opts, model1,model2,model3, loader, device, metrics, ret_samples_id
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.long)
 
-            outputs = model(images)
+            outputs1 = model1(images)
+            outputs2 = model2(images)
+            outputs3 = model3(images)
+            outputs=(softmax(outputs1)+softmax(outputs2)+softmax(outputs3))/3.0
             preds = outputs.detach().max(dim=1)[1].cpu().numpy()
             targets = labels.cpu().numpy()
-            outputs=softmax(outputs)
+            #outputs=softmax(outputs)
             conf, preds_val  = torch.max(outputs,dim=1)
 
             ece_out = ECE.forward(conf.squeeze(), preds_val.squeeze(),labels)
@@ -489,7 +492,9 @@ def main():
     denorm = utils.Denormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # denormalization for ori images
 
 
-    model.eval()
+    model1.eval()
+    model2.eval()
+    model3.eval()
     val_score, ret_samples,ece = validate(
         opts=opts, model1=model1, model2=model2, model3=model3, loader=val_loader, device=device, metrics=metrics, ret_samples_ids=vis_sample_id)
     print(metrics.to_str(val_score))
