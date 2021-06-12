@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .utils_deeplabv3 import _SimpleSegmentationModel
+from .utils import _SimpleSegmentationModel
 from network.ensemble_layer_vae2 import *
 
 __all__ = ["DeepLabV3"]
