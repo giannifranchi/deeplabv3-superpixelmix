@@ -360,7 +360,10 @@ def main():
             # Casts operations to mixed precision
             with torch.cuda.amp.autocast():
                 outputs = model(images)
-                pixelWiseWeight=sampler(images,labels)
+                softmax_output=torch.softmax(outputs, dim=1).detach()
+                max_probs, _ = torch.max(softmax_output, dim=1)
+                #pixelWiseWeight=sampler(images,labels)
+                pixelWiseWeight = (max_probs<0.7).float()
                 #loss = criterion(outputs, labels)
                 loss = criterion(outputs, labels,pixelWiseWeight)
                 

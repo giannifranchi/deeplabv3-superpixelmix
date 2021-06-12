@@ -80,7 +80,10 @@ class Cityscapes_mix(data.Dataset):
         self.mode = 'gtFine'
         self.target_type = target_type
         self.images_dir = os.path.join(self.root, 'leftImg8bit', split)
-
+        if split =='train':
+            self.images_dir2 = os.path.join(self.root, 'leftImg8bit', 'train_extra')
+            self.targets_dir2 = os.path.join(self.root, 'gtCoarse', 'train_extra')
+            
         self.targets_dir = os.path.join(self.root, self.mode, split)
         self.transform1 = transform1
         self.transform2 = transform2
@@ -110,7 +113,20 @@ class Cityscapes_mix(data.Dataset):
                 target_name = '{}_{}'.format(file_name.split('_leftImg8bit')[0],
                                              self._get_target_suffix(self.mode, self.target_type))
                 self.targets.append(os.path.join(target_dir, target_name))
+                
+        if split =='train':
 
+            for city in os.listdir(self.images_dir2):
+                img_dir2 = os.path.join(self.images_dir2, city)
+                target_dir2 = os.path.join(self.targets_dir2, city)
+
+                for file_name in os.listdir(img_dir2):
+                    self.images.append(os.path.join(img_dir2, file_name))
+                    target_name = '{}_{}'.format(file_name.split('_leftImg8bit')[0],self._get_target_suffix('gtCoarse', self.target_type))
+                    self.targets.append(os.path.join(target_dir2, target_name))
+
+
+        
     @classmethod
     def encode_target(cls, target):
         return cls.id_to_train_id[np.array(target)]
