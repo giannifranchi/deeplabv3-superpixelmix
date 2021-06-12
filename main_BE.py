@@ -36,7 +36,7 @@ def get_argparser():
                         help="num classes (default: None)")
 
     # Deeplab Options
-    parser.add_argument("--model", type=str, default='deeplabv3plus_mobilenet',
+    parser.add_argument("--model", type=str, default='deeplabv3plus_BE_resnet101',
                         choices=['deeplabv3_resnet50',  'deeplabv3plus_resnet50','deeplabv3plus_BE_resnet50','deeplabv3plus_BE_resnet101','deeplabv3plus_VAE_resnet101',
                                  'deeplabv3_resnet101', 'deeplabv3plus_resnet18', 'deeplabv3plus_resnet101',
                                  'deeplabv3_mobilenet', 'deeplabv3plus_mobilenet'], help='model name')
