@@ -366,7 +366,7 @@ def main():
             # Casts operations to mixed precision
             with torch.cuda.amp.autocast():
                 outputs = model(images)
-                loss = criterion(outputs, labels)+ mu_div * loss_latent_from_nn(model)
+                loss = criterion(outputs, labels)
                 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
