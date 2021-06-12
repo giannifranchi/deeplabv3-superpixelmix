@@ -11,7 +11,7 @@ from torch.utils import data
 from datasets import VOCSegmentation, Cityscapes
 from utils import ext_transforms as et
 from metrics import StreamSegMetrics
-
+from network.deeplab3_VAE import loss_latent_from_nn
 import torch
 import torch.nn as nn
 from utils.visualizer import Visualizer
@@ -346,7 +346,7 @@ def main():
 
     interval_loss = 0
     train_losses = []
-    while cur_epochs < 40: #cur_itrs < opts.total_itrs:
+    while cur_epochs < 80: #cur_itrs < opts.total_itrs:
         # =====  Train  =====
         model.train()
         cur_epochs += 1

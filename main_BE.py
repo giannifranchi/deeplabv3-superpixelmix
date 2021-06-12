@@ -346,7 +346,7 @@ def main():
 
     interval_loss = 0
     train_losses = []
-    while cur_epochs < 40: #cur_itrs < opts.total_itrs:
+    while cur_epochs < 80: #cur_itrs < opts.total_itrs:
         # =====  Train  =====
         model.train()
         cur_epochs += 1
