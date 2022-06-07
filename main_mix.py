@@ -29,6 +29,8 @@ def get_argparser():
     # Datset Options
     parser.add_argument("--data_root", type=str, default='./datasets/data',
                         help="path to Dataset")
+    parser.add_argument("--SSL_path", type=str, default='./SSL_CKT/',
+                        help="path to SSL initialisation")
     parser.add_argument("--dataset", type=str, default='voc',
                         choices=['voc', 'cityscapes'], help='Name of dataset')
     parser.add_argument("--num_classes", type=int, default=None,
@@ -362,6 +364,7 @@ def main():
     model = model_map[opts.model](num_classes=opts.num_classes, output_stride=opts.output_stride)
     ema_model = create_ema_model(model,opts.model,opts.num_classes,opts.output_stride,opts.gpu_id)
     ema_model.train()
+    
 
     if opts.separable_conv and 'plus' in opts.model:
         network.convert_to_separable_conv(model.classifier)
@@ -423,6 +426,26 @@ def main():
             print("Training state restored from %s" % opts.ckpt)
         print("Model restored from %s" % opts.ckpt)
         del checkpoint  # free memory
+    elif opts.SSL_path is not None and os.path.isfile(opts.SSL_path):
+        model_dict = model.state_dict()
+        print("opts.SSL_path",opts.SSL_path)
+        checkpoint = torch.load(opts.SSL_path)
+        state_dict = checkpoint["network"]
+        model_dict = model.state_dict()
+        state_dict =  {k.split('.feature_extractor._feature_blocks.0.')[1]: v for k, v in state_dict.items()if(k in state_dict and 'module.feature_extractor._feature_blocks.0.' in k)}
+        for k,v in state_dict.items():
+            print(k)
+        state_dict.popitem()
+        state_dict.popitem()
+        model_dict.update(state_dict)
+        model.load_state_dict(model_dict)
+
+        ema_model = create_ema_model(model,opts.model,opts.num_classes,opts.output_stride,opts.gpu_id)
+        ema_model.train()
+        model = nn.DataParallel(model)
+        model.to(device)
+        ema_model = ema_model.to(device) 
+    
     else:
         print("[!] Retrain")
         model = nn.DataParallel(model)
